@@ -343,9 +343,6 @@ public final class Launcher {
             server.rackPosition = position;
             servers.add(server);
             for (int i = position; i < position + server.size; i++) {
-                if (i >= availability.length) {
-                    return;
-                }
                 availability[i] = false;
             }
         }
@@ -364,7 +361,9 @@ public final class Launcher {
                     if (!availability[j]) ok = false;
                 }
 
-                if (ok && j <= maxSize) return i;
+                if (ok && ((j - i) == server.size)) {
+                    return i;
+                }
             }
 
             return -1;
