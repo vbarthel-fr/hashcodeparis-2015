@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 public final class Launcher {
@@ -83,5 +84,67 @@ public final class Launcher {
 
     // Non instantiability.
     private Launcher() {
+    }
+
+
+    private class Server {
+        public int capacity = 0;
+        public int size = 0;
+        public int id = -1;
+        public int rackPosition;
+        public int rackNumber;
+        public int groupId;
+
+        public Server(int id, int capacity, int size) {
+            this.id = id;
+            this.capacity = capacity;
+            this.size = size;
+        }
+    }
+
+    private class Rack {
+        public int id = -1;
+        public boolean[] availability;
+        public ArrayList<Server> servers = new ArrayList<Server>();
+        public int capacityTotal;
+        public int freeSize;
+
+        public Rack(int id, int size) {
+            freeSize = size;
+            availability = new boolean[freeSize];
+            Arrays.fill(availability, true);
+            this.id = id;
+        }
+
+        public void markAsUnavailable(int position) {
+            availability[position] = false;
+            freeSize--;
+        }
+
+        public void addServer(Server server, int position) {
+            capacityTotal += server.capacity;
+            freeSize -= server.size;
+            server.rackNumber = id;
+            server.rackPosition = position;
+            servers.add(server);
+        }
+    }
+
+    private class Group {
+        public int id = -1;
+        ArrayList<Server> servers = new ArrayList<Server>();
+        public int sizeTotal;
+        public int capacityTotal;
+
+        public Group(int id) {
+            this.id = id;
+        }
+
+        public void addServer(Server server) {
+            sizeTotal += server.size;
+            capacityTotal += server.capacity;
+            server.groupId = id;
+            servers.add(server);
+        }
     }
 }
