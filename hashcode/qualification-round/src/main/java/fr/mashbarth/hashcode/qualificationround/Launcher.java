@@ -8,9 +8,7 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
+import java.util.*;
 
 public final class Launcher {
 
@@ -21,7 +19,6 @@ public final class Launcher {
 
     public static void main(String[] args) {
         System.out.println("#### Qualification Round ####");
-
         final Problem problem = parseInput(INPUT_RESOURCE);
 
         System.out.println("#### Racks ####");
@@ -32,6 +29,74 @@ public final class Launcher {
 
         System.out.println("#### Groups ####");
         System.out.println(problem.groups.toString());
+        // Example of reading a file.
+        readResource("/test-resources.txt");
+
+
+        Collections.sort(problem.servers, new Comparator<Server>() {
+            public int compare(Server a, Server b) {
+                if (a.capacity == b.capacity) {
+                    return 0;
+                } else if (a.capacity < b.capacity) {
+                    return -1;
+                } else {
+                    return 1;
+                }
+            }
+        });
+
+        ArrayList<Server> panier = new ArrayList<Server>();
+        int panierCount = 0;
+
+        for (Server server : problem.servers) {
+            panierCount++;
+            panier.add(server);
+            if (panierCount == problem.p) {
+                processPanier(panier, problem.groups);
+                panier.clear();
+                panierCount = 0;
+            }
+        }
+
+        if (panierCount != 0) {
+            processPanier(panier, problem.groups);
+        }
+        return;
+
+    }
+
+    private static void processPanier(ArrayList<Server> panier, List<Group> groups) {
+        Collections.sort(panier, new Comparator<Server>() {
+            public int compare(Server a, Server b) {
+                if (a.size == b.size) {
+                    return 0;
+                } else if (a.size < b.size) {
+                    return -1;
+                } else {
+                    return 1;
+                }
+            }
+        });
+
+
+        Collections.sort(groups, new Comparator<Group>() {
+            public int compare(Group a, Group b) {
+                if (a.sizeTotal == b.sizeTotal) {
+                    return 0;
+                } else if (a.sizeTotal > b.sizeTotal) {
+                    return -1;
+                } else {
+                    return 1;
+                }
+            }
+        });
+
+        for (int i = 0; i < panier.size(); i++) {
+            groups.get(i).addServer(panier.get(i));
+        }
+
+        return;
+
     }
 
 
