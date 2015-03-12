@@ -8,7 +8,11 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
 
 public final class Launcher {
 
@@ -17,22 +21,38 @@ public final class Launcher {
 
     private static final String TEST_RESOURCE = "/test.in";
 
+    private static final String OUTPUT = "results.out";
+
     public static void main(String[] args) {
         System.out.println("#### Qualification Round ####");
+
         final Problem problem = parseInput(INPUT_RESOURCE);
 
-        System.out.println("#### Racks ####");
-        System.out.println(problem.racks.toString());
+        // Populate groups
+        populateGroups(problem);
 
-        System.out.println("#### Servers ####");
-        System.out.println(problem.servers.toString());
+        // Insert servers
+        insertServersIntoRacks(problem);
 
-        System.out.println("#### Groups ####");
-        System.out.println(problem.groups.toString());
-        // Example of reading a file.
-        readResource("/test-resources.txt");
+        // Sort servers by ids
+        Collections.sort(problem.servers, new Comparator<Server>() {
+            @Override
+            public int compare(Server a, Server b) {
+                if (a.id == b.id) {
+                    return 0;
+                } else if (a.id < b.id) {
+                    return -1;
+                } else {
+                    return 1;
+                }
+            }
+        });
 
+        writeFile(OUTPUT, problem.servers);
+        return;
+    }
 
+    private static void populateGroups(Problem problem) {
         Collections.sort(problem.servers, new Comparator<Server>() {
             public int compare(Server a, Server b) {
                 if (a.capacity == b.capacity) {
@@ -61,8 +81,6 @@ public final class Launcher {
         if (panierCount != 0) {
             processPanier(panier, problem.groups);
         }
-        return;
-
     }
 
     private static void processPanier(ArrayList<Server> panier, List<Group> groups) {
@@ -94,8 +112,6 @@ public final class Launcher {
         for (int i = 0; i < panier.size(); i++) {
             groups.get(i).addServer(panier.get(i));
         }
-
-        return;
 
     }
 
@@ -152,6 +168,57 @@ public final class Launcher {
 
     // Non instantiability.
     private Launcher() {
+    }
+
+
+    private static void insertServersIntoRacks(Problem problem) {
+        final List<Group> groups = new ArrayList<Group>(problem.groups);
+
+        for (Group group : groups) {
+            final List<Rack> racks = new ArrayList<Rack>(problem.racks);
+
+            // Sort the servers by increasing size
+            final List<Server> servers = new ArrayList<Server>(group.servers);
+            Collections.sort(servers, new Comparator<Server>() {
+                @Override
+                public int compare(Server a, Server b) {
+                    if (a.size == b.size) {
+                        return 0;
+                    } else if (a.size > b.size) {
+                        return -1;
+                    } else {
+                        return 1;
+                    }
+                }
+            });
+
+            // Sort the racks by decreasing free size
+            Collections.sort(racks, new Comparator<Rack>() {
+                @Override
+                public int compare(Rack a, Rack b) {
+                    if (a.freeSize == b.freeSize) {
+                        return 0;
+                    } else if (a.freeSize > b.freeSize) {
+                        return -1;
+                    } else {
+                        return 1;
+                    }
+                }
+            });
+
+            // For each server
+            for (Server server : servers) {
+                // Search for a best position in each rack.
+                for (Rack rack : racks) {
+                    final int bestPosition = rack.bestPosition(server);
+                    if (bestPosition != -1) {
+                        rack.addServer(server, bestPosition);
+                        racks.remove(rack);
+                        break;
+                    }
+                }
+            }
+        }
     }
 
     private static Problem parseInput(String inputName) {
@@ -231,9 +298,9 @@ public final class Launcher {
         public int capacity = 0;
         public int size = 0;
         public int id = -1;
-        public int rackPosition;
-        public int rackNumber;
-        public int groupId;
+        public int rackPosition = -1;
+        public int rackNumber = -1;
+        public int groupId = -1;
 
         public Server(int id, int capacity, int size) {
             this.id = id;
@@ -244,9 +311,9 @@ public final class Launcher {
         @Override
         public String toString() {
             // TODO use that for result
-            // return id + " " + rackNumber + " " + rackPosition + " " + groupId;
-            return "Server id: " + id + "  capacity: " + capacity + "  size: " + size + "  rackNumber: " + rackNumber + "  rackPosition:" + rackPosition + "  groupId:" + groupId;
-
+            if (rackNumber == -1) return "x";
+            return rackNumber + " " + rackPosition + " " + groupId;
+            //return "Server id: " + id + "  capacity: " + capacity + "  size: " + size + "  rackNumber: " + rackNumber + "  rackPosition:" + rackPosition + "  groupId:" + groupId;
         }
     }
 
@@ -259,7 +326,7 @@ public final class Launcher {
 
         public Rack(int id, int size) {
             freeSize = size;
-            availability = new boolean[freeSize];
+            availability = new boolean[size];
             Arrays.fill(availability, true);
             this.id = id;
         }
@@ -275,6 +342,32 @@ public final class Launcher {
             server.rackNumber = id;
             server.rackPosition = position;
             servers.add(server);
+            for (int i = position; i < position + server.size; i++) {
+                if (i >= availability.length) {
+                    return;
+                }
+                availability[i] = false;
+            }
+        }
+
+
+        // TODO improve create holes in the racks.
+        public int bestPosition(Server server) {
+            final int size = server.size;
+            final int maxSize = availability.length;
+
+            for (int i = 0; i < maxSize; i++) {
+                boolean ok = true;
+                int j;
+
+                for (j = i; j < maxSize && j < i + size; j++) {
+                    if (!availability[j]) ok = false;
+                }
+
+                if (ok && j <= maxSize) return i;
+            }
+
+            return -1;
         }
 
         @Override
