@@ -89,7 +89,7 @@ public final class Launcher {
     private static void processPanier(ArrayList<Server> panier, List<Group> groups) {
         Collections.sort(panier, new Comparator<Server>() {
             public int compare(Server a, Server b) {
-                if (a.size == b.size) {
+                if (a.capacity / a.size == b.capacity / b.size) {
                     return 0;
                 } else if (a.capacity / a.size < b.capacity / b.size) {
                     return -1;
@@ -102,7 +102,7 @@ public final class Launcher {
 
         Collections.sort(groups, new Comparator<Group>() {
             public int compare(Group a, Group b) {
-                if (a.sizeTotal == b.sizeTotal) {
+                if (a.capacityTotal / a.sizeTotal == b.capacityTotal / b.sizeTotal) {
                     return 0;
                 } else if (a.capacityTotal / a.sizeTotal > b.capacityTotal / b.sizeTotal) {
                     return -1;
@@ -132,7 +132,7 @@ public final class Launcher {
             Collections.sort(group.servers, new Comparator<Server>() {
                 @Override
                 public int compare(Server a, Server b) {
-                    if (a.size == b.size) {
+                    if (a.capacity / a.size == b.capacity / b.size) {
                         return 0;
                     } else if ((a.capacity / a.size) > (b.capacity / b.size)) {
                         return -1;
@@ -144,6 +144,7 @@ public final class Launcher {
         }
 
         for (int i = 0; i < minSize; i++) {
+
             for (final Group group : groups) {
                 final List<Rack> racks = new ArrayList<Rack>(problem.racks);
 
