@@ -1,18 +1,8 @@
 package fr.mashbarth.hashcode.qualificationround;
 
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.List;
+import java.io.*;
+import java.util.*;
 
 public final class Launcher {
 
@@ -65,6 +55,8 @@ public final class Launcher {
             }
         });
 
+        // Divide servers park in 45 "panier"
+        // All server in a "panier" have a pretty  much the same capacity per unit (due to previous sort).
         ArrayList<Server> panier = new ArrayList<Server>();
         int panierCount = 0;
 
@@ -83,12 +75,23 @@ public final class Launcher {
         }
     }
 
+    /**
+     * Sort server in "panier" by decreasing capacity per u
+     * Sort groups by increasing capacity per u
+     * <p/>
+     * Insert i in i in order to        homogenize capacity per u in each groups.
+     * <p/>
+     * Basically, insert the worst server in the best group.
+     *
+     * @param panier
+     * @param groups
+     */
     private static void processPanier(ArrayList<Server> panier, List<Group> groups) {
         Collections.sort(panier, new Comparator<Server>() {
             public int compare(Server a, Server b) {
                 if (a.size == b.size) {
                     return 0;
-                } else if (a.size < b.size) {
+                } else if (a.capacity / a.size < b.capacity / b.size) {
                     return -1;
                 } else {
                     return 1;
@@ -101,7 +104,7 @@ public final class Launcher {
             public int compare(Group a, Group b) {
                 if (a.sizeTotal == b.sizeTotal) {
                     return 0;
-                } else if (a.sizeTotal > b.sizeTotal) {
+                } else if (a.capacityTotal / a.sizeTotal > b.capacityTotal / b.sizeTotal) {
                     return -1;
                 } else {
                     return 1;
@@ -115,6 +118,83 @@ public final class Launcher {
 
     }
 
+
+    private static void insertServersIntoRacks(Problem problem) {
+        final List<Group> groups = new ArrayList<Group>(problem.groups);
+
+        int minSize = Integer.MAX_VALUE;
+        for (Group group : groups) {
+            if (group.servers.size() < minSize) {
+                minSize = group.servers.size();
+            }
+
+            // sort server of a group by capacity / units
+            Collections.sort(group.servers, new Comparator<Server>() {
+                @Override
+                public int compare(Server a, Server b) {
+                    if (a.size == b.size) {
+                        return 0;
+                    } else if ((a.capacity / a.size) > (b.capacity / b.size)) {
+                        return -1;
+                    } else {
+                        return 1;
+                    }
+                }
+            });
+        }
+
+        for (int i = 0; i < minSize; i++) {
+            for (final Group group : groups) {
+                final List<Rack> racks = new ArrayList<Rack>(problem.racks);
+
+                // Sort the racks by decreasing free size
+                Collections.sort(racks, new Comparator<Rack>() {
+                    @Override
+                    public int compare(Rack a, Rack b) {
+                        if (a.freeSize == b.freeSize) {
+                            return 0;
+                        } else if (a.freeSize > b.freeSize) {
+                            return -1;
+                        } else {
+                            return 1;
+                        }
+                    }
+                });
+
+                // Sort rack to try insertion in the rack where the group is less represented
+                // less represented means where capacity per unit of the group is the worst.
+                Collections.sort(racks, new Comparator<Rack>() {
+                    @Override
+                    public int compare(Rack a, Rack b) {
+                        int capacityPerUnitInA = 0;
+                        int capacityPerUnitInB = 0;
+
+                        for (Server server : group.servers) {
+                            if (a.servers.contains(server)) capacityPerUnitInA += server.capacity / server.size;
+                            if (b.servers.contains(server)) capacityPerUnitInB += server.capacity / server.size;
+                        }
+                        if (capacityPerUnitInA == capacityPerUnitInB) {
+                            return 0;
+                        } else if (capacityPerUnitInA < capacityPerUnitInB) {
+                            return -1;
+                        } else {
+                            return 1;
+                        }
+                    }
+                });
+
+                for (Rack rack : racks) {
+                    Server server = group.servers.get(i);
+                    final int bestPosition = rack.bestPosition(server);
+                    if (bestPosition != -1) {
+                        rack.addServer(server, bestPosition);
+                        racks.remove(rack);
+                        break;
+                    }
+                }
+            }
+        }
+    }
 
     /**
      * Read a resource line by line.
@@ -168,57 +248,6 @@ public final class Launcher {
 
     // Non instantiability.
     private Launcher() {
-    }
-
-
-    private static void insertServersIntoRacks(Problem problem) {
-        final List<Group> groups = new ArrayList<Group>(problem.groups);
-
-        for (Group group : groups) {
-            final List<Rack> racks = new ArrayList<Rack>(problem.racks);
-
-            // Sort the servers by increasing size
-            final List<Server> servers = new ArrayList<Server>(group.servers);
-            Collections.sort(servers, new Comparator<Server>() {
-                @Override
-                public int compare(Server a, Server b) {
-                    if (a.size == b.size) {
-                        return 0;
-                    } else if (a.size > b.size) {
-                        return -1;
-                    } else {
-                        return 1;
-                    }
-                }
-            });
-
-            // Sort the racks by decreasing free size
-            Collections.sort(racks, new Comparator<Rack>() {
-                @Override
-                public int compare(Rack a, Rack b) {
-                    if (a.freeSize == b.freeSize) {
-                        return 0;
-                    } else if (a.freeSize > b.freeSize) {
-                        return -1;
-                    } else {
-                        return 1;
-                    }
-                }
-            });
-
-            // For each server
-            for (Server server : servers) {
-                // Search for a best position in each rack.
-                for (Rack rack : racks) {
-                    final int bestPosition = rack.bestPosition(server);
-                    if (bestPosition != -1) {
-                        rack.addServer(server, bestPosition);
-                        racks.remove(rack);
-                        break;
-                    }
-                }
-            }
-        }
     }
 
     private static Problem parseInput(String inputName) {
@@ -295,8 +324,8 @@ public final class Launcher {
 
 
     private static class Server {
-        public int capacity = 0;
-        public int size = 0;
+        public float capacity = 0;
+        public float size = 0;
         public int id = -1;
         public int rackPosition = -1;
         public int rackNumber = -1;
@@ -350,7 +379,7 @@ public final class Launcher {
 
         // TODO improve create holes in the racks.
         public int bestPosition(Server server) {
-            final int size = server.size;
+            final float size = server.size;
             final int maxSize = availability.length;
 
             for (int i = 0; i < maxSize; i++) {
@@ -378,8 +407,8 @@ public final class Launcher {
     private static class Group {
         public int id = -1;
         ArrayList<Server> servers = new ArrayList<Server>();
-        public int sizeTotal;
-        public int capacityTotal;
+        public float sizeTotal;
+        public float capacityTotal;
 
         public Group(int id) {
             this.id = id;
